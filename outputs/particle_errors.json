@@ -1,0 +1,58 @@
+[
+  {
+    "case_id": "sub-verse512",
+    "mean_particle_error_mm": 0.7309017783570824
+  },
+  {
+    "case_id": "sub-verse524",
+    "mean_particle_error_mm": 0.26273280720589304
+  },
+  {
+    "case_id": "sub-verse560",
+    "mean_particle_error_mm": 0.31831057177636557
+  },
+  {
+    "case_id": "sub-verse570",
+    "mean_particle_error_mm": 0.6277817754346394
+  },
+  {
+    "case_id": "sub-verse573",
+    "mean_particle_error_mm": 0.6828015925175869
+  },
+  {
+    "case_id": "sub-verse577",
+    "mean_particle_error_mm": 0.13967923715925892
+  },
+  {
+    "case_id": "sub-verse598",
+    "mean_particle_error_mm": 0.5474952943383354
+  },
+  {
+    "case_id": "sub-verse620",
+    "mean_particle_error_mm": 0.2683834817223802
+  },
+  {
+    "case_id": "sub-verse809",
+    "mean_particle_error_mm": 0.7082573375988074
+  },
+  {
+    "case_id": "verse050",
+    "mean_particle_error_mm": 0.6974226072180154
+  },
+  {
+    "case_id": "verse097",
+    "mean_particle_error_mm": 1.6537851132120864
+  },
+  {
+    "case_id": "verse127",
+    "mean_particle_error_mm": 0.6141339136944025
+  },
+  {
+    "case_id": "verse236",
+    "mean_particle_error_mm": 1.1398079033514597
+  },
+  {
+    "case_id": "verse273",
+    "mean_particle_error_mm": 0.569435745438727
+  }
+]

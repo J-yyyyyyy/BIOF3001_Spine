@@ -1,0 +1,106 @@
+{
+  "cv": [
+    {
+      "pls_components": 1,
+      "cv_rmse": 160.3759666667654
+    },
+    {
+      "pls_components": 2,
+      "cv_rmse": 93.77382616324476
+    },
+    {
+      "pls_components": 3,
+      "cv_rmse": 63.77016032480601
+    },
+    {
+      "pls_components": 5,
+      "cv_rmse": 51.64020537680217
+    },
+    {
+      "pls_components": 8,
+      "cv_rmse": 45.488082467144665
+    }
+  ],
+  "selected": {
+    "pls_components": 8,
+    "cv_rmse": 45.488082467144665
+  },
+  "test_rmse": 30.303520976718737,
+  "mean_score_baseline_rmse": 191.06248311438125,
+  "training_cases": [
+    "sub-verse502",
+    "sub-verse508",
+    "sub-verse509",
+    "sub-verse510",
+    "sub-verse514",
+    "sub-verse521",
+    "sub-verse526",
+    "sub-verse540",
+    "sub-verse542",
+    "sub-verse547",
+    "sub-verse549",
+    "sub-verse552",
+    "sub-verse558",
+    "sub-verse561",
+    "sub-verse569",
+    "sub-verse571",
+    "sub-verse576",
+    "sub-verse582",
+    "sub-verse587",
+    "sub-verse599",
+    "sub-verse601",
+    "sub-verse602",
+    "sub-verse603",
+    "sub-verse607",
+    "sub-verse613",
+    "sub-verse619",
+    "sub-verse646",
+    "sub-verse704",
+    "sub-verse705",
+    "sub-verse758",
+    "sub-verse759",
+    "sub-verse765",
+    "sub-verse823",
+    "verse018",
+    "verse020",
+    "verse041",
+    "verse047",
+    "verse095",
+    "verse096",
+    "verse108",
+    "verse122",
+    "verse135",
+    "verse145",
+    "verse251",
+    "verse254",
+    "verse255",
+    "verse256",
+    "verse261",
+    "verse262",
+    "verse264",
+    "verse266",
+    "verse267",
+    "verse270",
+    "verse271",
+    "verse275",
+    "verse279",
+    "verse290"
+  ],
+  "test_cases": [
+    "sub-verse512",
+    "sub-verse524",
+    "sub-verse560",
+    "sub-verse570",
+    "sub-verse573",
+    "sub-verse577",
+    "sub-verse598",
+    "sub-verse620",
+    "sub-verse809",
+    "verse050",
+    "verse097",
+    "verse127",
+    "verse236",
+    "verse273"
+  ],
+  "scope": "Regression holdout within a shared SSM; not external pipeline validation"
+}

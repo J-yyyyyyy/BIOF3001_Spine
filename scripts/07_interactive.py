@@ -83,9 +83,13 @@ def launch_gui(model, keypoints, output_path):
             self.setCentralWidget(central)
             layout = QtWidgets.QHBoxLayout(central)
             panel = QtWidgets.QWidget()
+            panel.setMaximumWidth(480)
             panel_layout = QtWidgets.QVBoxLayout(panel)
-            panel_layout.addWidget(QtWidgets.QLabel("15 aligned landmarks (T1–L3): edit X / Y / Z in mm"))
-            panel_layout.addWidget(QtWidgets.QLabel("Your PLS + PCA model • edits explore predictions, not test accuracy"))
+            for text in ("15 aligned landmarks (T1–L3): edit X / Y / Z in mm",
+                         "Your PLS + PCA model • edits explore predictions, not test accuracy"):
+                label = QtWidgets.QLabel(text)
+                label.setWordWrap(True)
+                panel_layout.addWidget(label)
             scroll = QtWidgets.QScrollArea()
             scroll.setWidgetResizable(True)
             fields = QtWidgets.QWidget()
@@ -106,11 +110,13 @@ def launch_gui(model, keypoints, output_path):
                     cell_layout = QtWidgets.QVBoxLayout(cell)
                     cell_layout.setContentsMargins(0, 0, 0, 0)
                     spin = QtWidgets.QDoubleSpinBox()
+                    spin.setMinimumWidth(0)
                     spin.setDecimals(2)
                     spin.setRange(float(lower[j]), float(upper[j]))
                     spin.setSingleStep(0.1)
                     spin.setValue(float(keypoints[i, j]))
                     slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+                    slider.setMinimumWidth(0)
                     slider.setRange(int(np.floor(lower[j] * 100)), int(np.ceil(upper[j] * 100)))
                     slider.setValue(int(round(keypoints[i, j] * 100)))
                     slider.valueChanged.connect(
@@ -143,13 +149,21 @@ def launch_gui(model, keypoints, output_path):
             self.status.setWordWrap(True)
             panel_layout.addWidget(self.status)
             layout.addWidget(panel, 2)
-            self.left = QtInteractor(central)
-            self.right = QtInteractor(central)
+            # Render explicitly on edits rather than running two idle render timers.
+            self.left = QtInteractor(central, auto_update=False, multi_samples=0)
+            self.right = QtInteractor(central, auto_update=False, multi_samples=0)
             for plotter in (self.left, self.right):
                 plotter.set_background("white")
                 plotter.add_axes()
                 layout.addWidget(plotter, 2)
+            self.status.setText("Preparing predicted particles...")
+
+        def initialize_views(self):
+            # The native render windows must be visible before the first scene render.
+            print("Initializing 3D views...", flush=True)
             self.update_views(initial=True)
+            print("3D views ready: input landmarks on the left, prediction on the right.",
+                  flush=True)
 
         def edit_point(self, point, coordinate, value):
             self.keypoints[point, coordinate] = value
@@ -181,17 +195,19 @@ def launch_gui(model, keypoints, output_path):
             if initial:
                 self.keypoint_cloud = pv.PolyData(self.keypoints.copy())
                 self.curve = pv.lines_from_points(self.keypoints)
-                self.left.add_mesh(self.keypoint_cloud, color="crimson", point_size=12,
-                                   render_points_as_spheres=True)
-                self.left.add_mesh(self.curve, color="gray", line_width=2)
-                self.left.add_text("Input landmarks (aligned mm)", font_size=10, color="black")
-                self.right.add_text("Predicted particles (PCA frame, mm)", font_size=10, color="black")
+                # Plain GL points avoid sphere-impostor shader issues on some drivers.
+                self.left.add_points(self.keypoint_cloud, color="crimson", point_size=10,
+                                     render_points_as_spheres=False, render=False)
+                self.left.add_mesh(self.curve, color="gray", line_width=2, render=False)
+                self.left.add_text("Input landmarks (aligned mm)", font_size=10, color="black", render=False)
+                self.right.add_text("Predicted particles (PCA frame, mm)", font_size=10, color="black", render=False)
                 self.clouds = []
                 for points, color in zip(model.split(particles), COLORS):
                     cloud = pv.PolyData(points.copy())
                     self.clouds.append(cloud)
-                    self.actors.append(self.right.add_mesh(
-                        cloud, color=color, point_size=5, render_points_as_spheres=True))
+                    self.actors.append(self.right.add_points(
+                        cloud, color=color, point_size=5, render_points_as_spheres=False,
+                        render=False))
                 for plotter in (self.left, self.right):
                     plotter.view_yz()
                     plotter.reset_camera()
@@ -225,6 +241,7 @@ def launch_gui(model, keypoints, output_path):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([sys.argv[0]])
     window = CurveAndPCQtApp()
     window.show()
+    QtCore.QTimer.singleShot(0, window.initialize_views)
     return app.exec_()
 
 
