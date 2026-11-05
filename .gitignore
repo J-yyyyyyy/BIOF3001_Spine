@@ -1,0 +1,31 @@
+# Downloaded datasets and generated results
+/data/
+/BIOF3001_Data/
+/outputs/
+/output/
+
+# Local environments, caches, and editor settings
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+
+# Local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Installers, documents, and temporary files
+*.exe
+*.msi
+*.docx
+*.pdf
+*.tmp
+~$*
+Thumbs.db
+.DS_Store
