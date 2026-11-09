@@ -64,7 +64,23 @@ def save_particles(path, particles):
     return path
 
 
-def launch_gui(model, keypoints, output_path):
+def discover_models(model_path, suite_dir):
+    """List existing local experiments without loading every pickled estimator."""
+    choices = {}
+    for folder in sorted(Path(suite_dir).glob('pca_*')):
+        path = folder/'interactive_model.joblib'
+        if not path.is_file() or not (folder/'pca.npz').is_file():
+            continue
+        with np.load(folder/'pca.npz', allow_pickle=False) as data:
+            k = len(data['modes'])
+        choices[k] = path.resolve()
+    active = StudentSpineModel(model_path)
+    choices[len(active.modes)] = Path(model_path).resolve()
+    return active, dict(sorted(choices.items()))
+
+
+def launch_gui(model, keypoints, output_path, model_path, model_choices, case,
+               fixed_output=False):
     # GUI dependencies are deliberately optional for CLI/headless use.
     from PyQt5 import QtCore, QtWidgets
     import pyvista as pv
@@ -77,6 +93,11 @@ def launch_gui(model, keypoints, output_path):
             self.resize(1400, 850)
             self.keypoints = keypoints.copy()
             self.initial_keypoints = keypoints.copy()
+            self.model = model
+            self.model_path = Path(model_path).resolve()
+            self.model_cache = {self.model_path: model}
+            self.output_path = Path(output_path)
+            self.views_ready = False
             self.controls = []
             self.actors = []
             central = QtWidgets.QWidget()
@@ -90,6 +111,16 @@ def launch_gui(model, keypoints, output_path):
                 label = QtWidgets.QLabel(text)
                 label.setWordWrap(True)
                 panel_layout.addWidget(label)
+            model_row = QtWidgets.QHBoxLayout()
+            model_row.addWidget(QtWidgets.QLabel("PCA modes"))
+            self.pca_selector = QtWidgets.QComboBox()
+            for k, path in model_choices.items():
+                self.pca_selector.addItem(str(k), str(path))
+            self.pca_selector.setCurrentIndex(list(model_choices).index(len(model.modes)))
+            self.pca_selector.setEnabled(False)
+            self.pca_selector.currentIndexChanged.connect(self.change_model)
+            model_row.addWidget(self.pca_selector)
+            panel_layout.addLayout(model_row)
             scroll = QtWidgets.QScrollArea()
             scroll.setWidgetResizable(True)
             fields = QtWidgets.QWidget()
@@ -162,8 +193,41 @@ def launch_gui(model, keypoints, output_path):
             # The native render windows must be visible before the first scene render.
             print("Initializing 3D views...", flush=True)
             self.update_views(initial=True)
+            self.views_ready = True
+            self.pca_selector.setEnabled(True)
             print("3D views ready: input landmarks on the left, prediction on the right.",
                   flush=True)
+
+        def change_model(self, index):
+            if not self.views_ready:
+                return
+            path = Path(self.pca_selector.itemData(index))
+            self.timer.stop()
+            try:
+                candidate = self.model_cache.get(path)
+                if candidate is None:
+                    candidate = StudentSpineModel(path)
+                # Switching must preserve the same case and coordinate frame.
+                if case not in candidate.case_ids or not np.allclose(
+                        candidate.centres[candidate.case_ids.index(case)],
+                        self.initial_keypoints, atol=1e-6):
+                    raise ValueError('This model uses different input landmarks for this case.')
+                if not np.allclose(candidate.mean, self.model.mean, atol=1e-6):
+                    raise ValueError('This model uses a different mean shape or PCA frame.')
+                candidate.predict(self.keypoints)
+            except (OSError, ValueError, KeyError) as error:
+                self.pca_selector.blockSignals(True)
+                self.pca_selector.setCurrentIndex(
+                    self.pca_selector.findData(str(self.model_path)))
+                self.pca_selector.blockSignals(False)
+                self.status.setText(f'Model switch failed: {error}')
+                return
+            self.model_cache[path] = candidate
+            self.model = candidate
+            self.model_path = path
+            if not fixed_output:
+                self.output_path = path.parent/'interactive_particles.ply'
+            self.update_views()
 
         def edit_point(self, point, coordinate, value):
             self.keypoints[point, coordinate] = value
@@ -188,7 +252,7 @@ def launch_gui(model, keypoints, output_path):
 
         def update_views(self, initial=False):
             try:
-                scores, particles = model.predict(self.keypoints)
+                scores, particles = self.model.predict(self.keypoints)
             except ValueError as error:
                 self.status.setText(str(error))
                 return
@@ -202,7 +266,7 @@ def launch_gui(model, keypoints, output_path):
                 self.left.add_text("Input landmarks (aligned mm)", font_size=10, color="black", render=False)
                 self.right.add_text("Predicted particles (PCA frame, mm)", font_size=10, color="black", render=False)
                 self.clouds = []
-                for points, color in zip(model.split(particles), COLORS):
+                for points, color in zip(self.model.split(particles), COLORS):
                     cloud = pv.PolyData(points.copy())
                     self.clouds.append(cloud)
                     self.actors.append(self.right.add_points(
@@ -214,19 +278,19 @@ def launch_gui(model, keypoints, output_path):
             else:
                 self.keypoint_cloud.points = self.keypoints.copy()
                 self.curve.points = self.keypoints.copy()
-                for cloud, points in zip(self.clouds, model.split(particles)):
+                for cloud, points in zip(self.clouds, self.model.split(particles)):
                     cloud.points = points.copy()
             self.left.render()
             self.right.render()
-            self.status.setText(f"{len(particles):,} particles • PCs: " +
+            self.status.setText(f"PCA modes: {len(scores)} • {len(particles):,} particles • PCs: " +
                                 ", ".join(f"{value:.3f}" for value in scores))
 
         def save_current(self):
             filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, "Save all 15 reconstructed vertebrae", str(output_path), "Point cloud (*.ply)")
+                self, "Save all 15 reconstructed vertebrae", str(self.output_path), "Point cloud (*.ply)")
             if filename:
                 try:
-                    _, particles = model.predict(self.keypoints)
+                    _, particles = self.model.predict(self.keypoints)
                     path = save_particles(filename, particles)
                     self.status.setText(f"Saved all 15 vertebrae: {path}")
                 except (OSError, ValueError) as error:
@@ -247,13 +311,26 @@ def launch_gui(model, keypoints, output_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--model',type=Path,default=OUTPUT/'interactive_model.joblib')
+    parser.add_argument('--model',type=Path,default=None)
     parser.add_argument('--case',help='Start from this case; defaults to the first held-out case')
     parser.add_argument('--headless',action='store_true',help='Export without GUI dependencies')
-    parser.add_argument('--output',type=Path,default=OUTPUT/'interactive_particles.ply')
+    parser.add_argument('--output',type=Path,default=None)
+    parser.add_argument('--run-dir', type=Path, default=OUTPUT, help='Directory containing one PCA experiment')
+    parser.add_argument('--suite-dir', type=Path, help='Parent directory containing pca_03, pca_04, etc.')
     args=parser.parse_args(argv)
+    suite = args.suite_dir or (args.run_dir.parent if args.run_dir.name.startswith('pca_')
+                              else OUTPUT/'experiments'/'pca_3_4_5_6')
+    if (not args.headless and args.model is None and args.run_dir == OUTPUT
+            and (suite/'pca_03'/'interactive_model.joblib').is_file()):
+        args.run_dir = suite/'pca_03'
+    args.model=args.model or args.run_dir/'interactive_model.joblib'
+    fixed_output = args.output is not None
+    args.output=args.output or args.run_dir/'interactive_particles.ply'
     try:
-        model=StudentSpineModel(args.model)
+        if args.headless:
+            model=StudentSpineModel(args.model)
+        else:
+            model, choices=discover_models(args.model, suite)
         case=args.case or model.default_case
         if case not in model.case_ids:
             raise ValueError(f'Unknown case {case}; use a case from the PCA cohort.')
@@ -264,7 +341,8 @@ def main(argv=None):
             print(save_particles(args.output,particles))
             print('PC scores:',scores)
             return 0
-        return launch_gui(model,points,args.output)
+        return launch_gui(model,points,args.output,args.model,choices,case,
+                          fixed_output=fixed_output)
     except ImportError as error:
         parser.exit(1,f'{error}\nInstall requirements_interactive.txt for the GUI, or use --headless.\n')
     except NotImplementedError as error:
