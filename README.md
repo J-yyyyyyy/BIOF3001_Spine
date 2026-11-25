@@ -1,5 +1,7 @@
 # BIOF3001: reconstruct a spine from 15 landmarks
 
+# Collabration: this repo is totally produced by Carol Jiyue Cao(myself). My teammate Grace Wang has her own repo.
+
 Supervisor: Pengyu Lu
 
 Start with supplied oriented vertebral meshes and segmentation masks. Extract
